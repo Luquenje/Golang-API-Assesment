@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/joho/godotenv"
 )
@@ -24,7 +25,11 @@ func main() {
 	}
 
 	//fmt.Print("%+v\n", store)
+	port, exists := os.LookupEnv("PORT")
+	if !exists {
+		port = "3000"
+	}
 
-	server := NewAPIServer(":3000", store)
+	server := NewAPIServer(":"+port, store)
 	server.Run()
 }

@@ -4,11 +4,22 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"testing"
+
+	"github.com/joho/godotenv"
 )
+
+func init() {
+	// loads values from .env into the system
+	if err := godotenv.Load(); err != nil {
+		log.Print("No .env file found")
+	}
+}
 
 func TestRegister(t *testing.T) {
 	store, err := NewPostgresStore()
@@ -21,7 +32,12 @@ func TestRegister(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
-	server := NewAPIServer(":3000", store)
+
+	port, exists := os.LookupEnv("PORT")
+	if !exists {
+		port = "3000"
+	}
+	server := NewAPIServer(":"+port, store)
 
 	requestBody := []byte(`{
         "teacher": "teacherken@gmail.com",
@@ -96,7 +112,12 @@ func TestCommonStudents1(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
-	server := NewAPIServer(":3000", store)
+
+	port, exists := os.LookupEnv("PORT")
+	if !exists {
+		port = "3000"
+	}
+	server := NewAPIServer(":"+port, store)
 
 	// Define the query parameter
 	queryParam := "teacher=teacherken%40gmail.com"
@@ -161,7 +182,12 @@ func TestCommonStudents2(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
-	server := NewAPIServer(":3000", store)
+
+	port, exists := os.LookupEnv("PORT")
+	if !exists {
+		port = "3000"
+	}
+	server := NewAPIServer(":"+port, store)
 
 	// Define the query parameter
 	queryParam := "teacher=teacherken%40gmail.com&teacher=teacherjoe%40gmail.com"
@@ -222,7 +248,12 @@ func TestSuspend(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
-	server := NewAPIServer(":3000", store)
+
+	port, exists := os.LookupEnv("PORT")
+	if !exists {
+		port = "3000"
+	}
+	server := NewAPIServer(":"+port, store)
 
 	requestBody := []byte(`{
         "student": "studentjon@gmail.com"
@@ -265,7 +296,12 @@ func TestNotification1(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
-	server := NewAPIServer(":3000", store)
+
+	port, exists := os.LookupEnv("PORT")
+	if !exists {
+		port = "3000"
+	}
+	server := NewAPIServer(":"+port, store)
 
 	requestBody := []byte(`{
 		"teacher":  "teacherken@gmail.com",
@@ -329,7 +365,12 @@ func TestNotification2(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
-	server := NewAPIServer(":3000", store)
+
+	port, exists := os.LookupEnv("PORT")
+	if !exists {
+		port = "3000"
+	}
+	server := NewAPIServer(":"+port, store)
 
 	requestBody := []byte(`{
 		"teacher":  "teacherken@gmail.com",
