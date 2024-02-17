@@ -174,13 +174,13 @@ func (s *PostgresStore) CreateStudent(student *Student) error {
 		INSERT INTO Student (email, is_suspended, created_at)
 		VALUES ($1, $2, $3);`
 
-	res, err := s.db.Query(query, student.Email, student.IsSuspended, student.CreatedAt)
+	_, err := s.db.Query(query, student.Email, student.IsSuspended, student.CreatedAt)
 
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("%+v\n", res)
+	//fmt.Printf("%+v\n", res)
 
 	return nil
 }
