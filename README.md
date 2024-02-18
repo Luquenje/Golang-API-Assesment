@@ -11,9 +11,10 @@ It uses a PostgreSQL which is hosted on ElephantSQL.
 
 1. Open and run PostgreSQL on your local machine
 2. Go to the .env file and change the POSTGRESQL_CONNECTION_STRING to mach your database specifications if you are using a locally ran PostgreSQL. The most notable one is your database password. I have a commented out a connection string using the default user and dbname which is postgres. I am using a connection string of the PostgreSQL that I have hosted on ElephantSQL (the connection string and .env file is not supposed to be exposed in github but for this assesment I will expose them). You could use that instead of running a local instance of PostgreSQL if you wish.
-3. Open the command line in the project folder and run **make get** to get the packages used in this project.
-4. Run **make run** in the command line to run the server.
-5. Run **make test** in the command line to run the unit tests.
+3. Open the command line in the project folder and run "./build.bat" to run the server. 
+   If you prefer using makefile, run "make get" to get the packages used in this project, then run "make run" to run the server.
+4. Run "./build_test.bat" in the command line to run the unit tests.
+   If you prefer using makefile, "make test".
 
 # Packages Used
 
