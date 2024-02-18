@@ -59,7 +59,7 @@ func NewPostgresStore() (*PostgresStore, error) {
 	}
 
 	// Set the maximum number of connections in the pool
-	poolConfig.MaxConns = 5
+	poolConfig.MaxConns = 3
 
 	// Create the database connection pool
 	dbPool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
