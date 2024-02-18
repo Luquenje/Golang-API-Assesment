@@ -4,7 +4,7 @@ Develop a backend application that will be part of a system which teachers can u
 
 # Use Instructions
 
-### This program assumes that Go and PostgreSQL have already been installed on the device.
+### This program assumes that Go, PostgreSQL (and WSL depending if the system needs it to run PostgreSQL) have already been installed on the device. I am using Go ver 1.22.0 for Windows and PostgreSQL ver 16.2 for Windows.
 
 1. Open and run PostgreSQL on your local machine
 2. Go to the .env file and change the POSTGRESQL_CONNECTION_STRING to mach your database specifications. The most notable one is your database password. I will be using the default user and dbname which is postgres.
