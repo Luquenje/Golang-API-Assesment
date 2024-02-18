@@ -32,4 +32,6 @@ func main() {
 
 	server := NewAPIServer(":"+port, store)
 	server.Run()
+
+	store.db.Close()
 }

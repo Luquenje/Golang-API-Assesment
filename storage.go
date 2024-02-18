@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/lib/pq"
 )
 
@@ -31,7 +34,8 @@ type Storage interface {
 }
 
 type PostgresStore struct {
-	db *sql.DB
+	db     *sql.DB
+	dbPool *pgxpool.Pool
 }
 
 func NewPostgresStore() (*PostgresStore, error) {
@@ -40,16 +44,31 @@ func NewPostgresStore() (*PostgresStore, error) {
 		fmt.Println("POSTGRESQL_CONNECTION_STRING env var does not exist")
 		connStr = "user=postgres dbname=postgres password=P@ssw0rd sslmode=disable"
 	}
-	db, err := sql.Open("postgres", connStr)
+	//db, err := sql.Open("postgres", connStr)
+
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// if err := db.Ping(); err != nil {
+	// 	return nil, err
+	// }
+
+	poolConfig, err := pgxpool.ParseConfig(connStr)
 	if err != nil {
 		return nil, err
 	}
-	if err := db.Ping(); err != nil {
+
+	// Set the maximum number of connections in the pool
+	poolConfig.MaxConns = 5
+
+	// Create the database connection pool
+	dbPool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
+	if err != nil {
 		return nil, err
 	}
 
 	return &PostgresStore{
-		db: db,
+		dbPool: dbPool,
 	}, nil
 }
 
@@ -72,21 +91,33 @@ func (s *PostgresStore) Init() error {
 
 // Teacher Queries
 func (s *PostgresStore) createTeacherTable() error {
+	conn, err := s.dbPool.Acquire(context.Background())
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+
 	query := `create table if not exists Teacher (
 		email VARCHAR(255) PRIMARY KEY,
 		created_at timestamp
 	)`
 
-	_, err := s.db.Exec(query)
+	_, err = conn.Exec(context.Background(), query)
 	return err
 }
 
 func (s *PostgresStore) CreateTeacher(teacher *Teacher) error {
+	conn, err := s.dbPool.Acquire(context.Background())
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+
 	query := `
 		INSERT INTO Teacher (email, created_at)
 		VALUES ($1, $2);`
 
-	_, err := s.db.Query(query, teacher.Email, teacher.CreatedAt)
+	_, err = conn.Query(context.Background(), query, teacher.Email, teacher.CreatedAt)
 
 	if err != nil {
 		return err
@@ -96,8 +127,14 @@ func (s *PostgresStore) CreateTeacher(teacher *Teacher) error {
 }
 
 func (s *PostgresStore) GetTeacherByEmail(email string) (*Teacher, error) {
+	conn, err := s.dbPool.Acquire(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+
 	query := `SELECT * FROM Teacher WHERE email = $1`
-	rows, err := s.db.Query(query, email)
+	rows, err := conn.Query(context.Background(), query, email)
 	if err != nil {
 		return nil, err
 	}
@@ -114,8 +151,14 @@ func (s *PostgresStore) GetTeacherByEmail(email string) (*Teacher, error) {
 }
 
 func (s *PostgresStore) GetTeachers() ([]*Teacher, error) {
+	conn, err := s.dbPool.Acquire(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+
 	query := `SELECT * FROM Teacher`
-	rows, err := s.db.Query(query)
+	rows, err := conn.Query(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -135,10 +178,16 @@ func (s *PostgresStore) GetTeachers() ([]*Teacher, error) {
 }
 
 func (s *PostgresStore) TeacherExists(teacheEmail string) (bool, error) {
+	conn, err := s.dbPool.Acquire(context.Background())
+	if err != nil {
+		return false, err
+	}
+	defer conn.Release()
+
 	query := `SELECT COUNT(1) FROM Teacher WHERE email = $1`
 
 	var count int
-	err := s.db.QueryRow(query, teacheEmail).Scan(&count) // queries the count of rows selected
+	err = conn.QueryRow(context.Background(), query, teacheEmail).Scan(&count) // queries the count of rows selected
 	if err != nil {
 		return false, err
 	}
@@ -147,7 +196,7 @@ func (s *PostgresStore) TeacherExists(teacheEmail string) (bool, error) {
 	return exists, nil
 }
 
-func scanIntoTeacher(rows *sql.Rows) (*Teacher, error) {
+func scanIntoTeacher(rows pgx.Rows) (*Teacher, error) {
 	teacher := new(Teacher)
 	err := rows.Scan(
 		&teacher.Email,
@@ -158,6 +207,11 @@ func scanIntoTeacher(rows *sql.Rows) (*Teacher, error) {
 
 // Student Queries
 func (s *PostgresStore) createStudentTable() error {
+	conn, err := s.dbPool.Acquire(context.Background())
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
 
 	query := `create table if not exists Student (
 		email VARCHAR(255) PRIMARY KEY,
@@ -165,16 +219,21 @@ func (s *PostgresStore) createStudentTable() error {
 		created_at timestamp
 	)`
 
-	_, err := s.db.Exec(query)
+	_, err = conn.Exec(context.Background(), query)
 	return err
 }
 
 func (s *PostgresStore) CreateStudent(student *Student) error {
+	conn, err := s.dbPool.Acquire(context.Background())
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
 	query := `
 		INSERT INTO Student (email, is_suspended, created_at)
 		VALUES ($1, $2, $3);`
 
-	_, err := s.db.Query(query, student.Email, student.IsSuspended, student.CreatedAt)
+	_, err = conn.Query(context.Background(), query, student.Email, student.IsSuspended, student.CreatedAt)
 
 	if err != nil {
 		return err
@@ -186,8 +245,14 @@ func (s *PostgresStore) CreateStudent(student *Student) error {
 }
 
 func (s *PostgresStore) GetStudentByEmail(email string) (*Student, error) {
+	conn, err := s.dbPool.Acquire(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+
 	query := `SELECT * FROM Student WHERE email = $1`
-	rows, err := s.db.Query(query, email)
+	rows, err := conn.Query(context.Background(), query, email)
 	if err != nil {
 		return nil, err
 	}
@@ -204,8 +269,14 @@ func (s *PostgresStore) GetStudentByEmail(email string) (*Student, error) {
 }
 
 func (s *PostgresStore) GetStudents() ([]*Student, error) {
+	conn, err := s.dbPool.Acquire(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+
 	query := `SELECT * FROM Student`
-	rows, err := s.db.Query(query)
+	rows, err := conn.Query(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -225,8 +296,14 @@ func (s *PostgresStore) GetStudents() ([]*Student, error) {
 }
 
 func (s *PostgresStore) UpdateStudentSuspendedState(email string, is_suspended bool) error {
+	conn, err := s.dbPool.Acquire(context.Background())
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+
 	query := `UPDATE Student SET is_suspended = $1 WHERE email = $2;`
-	_, err := s.db.Exec(query, is_suspended, email)
+	_, err = conn.Exec(context.Background(), query, is_suspended, email)
 	if err != nil {
 		return err
 	}
@@ -235,10 +312,16 @@ func (s *PostgresStore) UpdateStudentSuspendedState(email string, is_suspended b
 }
 
 func (s *PostgresStore) StudentExists(studentEmail string) (bool, error) {
+	conn, err := s.dbPool.Acquire(context.Background())
+	if err != nil {
+		return false, err
+	}
+	defer conn.Release()
+
 	query := `SELECT COUNT(1) FROM Student WHERE email = $1`
 
 	var count int
-	err := s.db.QueryRow(query, studentEmail).Scan(&count) // queries the count of rows selected
+	err = conn.QueryRow(context.Background(), query, studentEmail).Scan(&count) // queries the count of rows selected
 	if err != nil {
 		return false, err
 	}
@@ -248,8 +331,14 @@ func (s *PostgresStore) StudentExists(studentEmail string) (bool, error) {
 }
 
 func (s *PostgresStore) IsStudentSuspended(studentEmail string) (bool, error) {
+	conn, err := s.dbPool.Acquire(context.Background())
+	if err != nil {
+		return false, err
+	}
+	defer conn.Release()
+
 	query := `SELECT * FROM Student WHERE email = $1`
-	rows, err := s.db.Query(query, studentEmail)
+	rows, err := conn.Query(context.Background(), query, studentEmail)
 	if err != nil {
 		return false, err
 	}
@@ -264,7 +353,7 @@ func (s *PostgresStore) IsStudentSuspended(studentEmail string) (bool, error) {
 	return false, nil
 }
 
-func scanIntoStudent(rows *sql.Rows) (*Student, error) {
+func scanIntoStudent(rows pgx.Rows) (*Student, error) {
 	student := new(Student)
 	err := rows.Scan(
 		&student.Email,
@@ -276,6 +365,11 @@ func scanIntoStudent(rows *sql.Rows) (*Student, error) {
 
 // TeacherStudent queries
 func (s *PostgresStore) createTeacherStudentTable() error {
+	conn, err := s.dbPool.Acquire(context.Background())
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
 
 	query := `create table if not exists TeacherStudent (
 		teacher_email VARCHAR(255),
@@ -286,15 +380,21 @@ func (s *PostgresStore) createTeacherStudentTable() error {
     	PRIMARY KEY (teacher_email, student_email)
 	)`
 
-	_, err := s.db.Exec(query)
+	_, err = conn.Exec(context.Background(), query)
 	return err
 }
 
 func (s *PostgresStore) CreateTeacherStudent(teacherstudent *TeacherStudent) error {
+	conn, err := s.dbPool.Acquire(context.Background())
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+
 	query := `INSERT INTO TeacherStudent (teacher_email, student_email, created_at)
 	VALUES ($1, $2, $3);`
 
-	_, err := s.db.Query(query, teacherstudent.TeacherEmail, teacherstudent.StudentEmail, teacherstudent.CreatedAt)
+	_, err = conn.Query(context.Background(), query, teacherstudent.TeacherEmail, teacherstudent.StudentEmail, teacherstudent.CreatedAt)
 
 	if err != nil {
 		return err
@@ -304,9 +404,15 @@ func (s *PostgresStore) CreateTeacherStudent(teacherstudent *TeacherStudent) err
 }
 
 func (s *PostgresStore) GetTeacherStudentByEmail(teacherEmail string, studentEmail string) (*TeacherStudent, error) {
+	conn, err := s.dbPool.Acquire(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+
 	query := `SELECT * FROM TeacherStudent WHERE teacher_email = $1 AND student_email = $2`
 
-	rows, err := s.db.Query(query, teacherEmail, studentEmail)
+	rows, err := conn.Query(context.Background(), query, teacherEmail, studentEmail)
 
 	if err != nil {
 		return nil, err
@@ -324,8 +430,14 @@ func (s *PostgresStore) GetTeacherStudentByEmail(teacherEmail string, studentEma
 }
 
 func (s *PostgresStore) GetStudentsAssignedToTeacher(teacherEmail string) ([]string, error) {
+	conn, err := s.dbPool.Acquire(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+
 	query := `SELECT * FROM TeacherStudent WHERE teacher_email = $1`
-	rows, err := s.db.Query(query, teacherEmail)
+	rows, err := conn.Query(context.Background(), query, teacherEmail)
 	if err != nil {
 		return nil, err
 	}
@@ -343,10 +455,16 @@ func (s *PostgresStore) GetStudentsAssignedToTeacher(teacherEmail string) ([]str
 }
 
 func (s *PostgresStore) TeacherStudentExists(teacherEmail string, studentEmail string) (bool, error) {
+	conn, err := s.dbPool.Acquire(context.Background())
+	if err != nil {
+		return false, err
+	}
+	defer conn.Release()
+
 	query := `SELECT COUNT(1) FROM TeacherStudent WHERE teacher_email = $1 AND student_email = $2`
 
 	var count int
-	err := s.db.QueryRow(query, teacherEmail, studentEmail).Scan(&count) // queries the count of rows selected
+	err = conn.QueryRow(context.Background(), query, teacherEmail, studentEmail).Scan(&count) // queries the count of rows selected
 	if err != nil {
 		return false, err
 	}
@@ -355,7 +473,7 @@ func (s *PostgresStore) TeacherStudentExists(teacherEmail string, studentEmail s
 	return exists, nil
 }
 
-func scanIntoTeacherStudent(rows *sql.Rows) (*TeacherStudent, error) {
+func scanIntoTeacherStudent(rows pgx.Rows) (*TeacherStudent, error) {
 	teacherstudent := new(TeacherStudent)
 	err := rows.Scan(
 		&teacherstudent.TeacherEmail,
@@ -367,6 +485,12 @@ func scanIntoTeacherStudent(rows *sql.Rows) (*TeacherStudent, error) {
 
 // Specific queries
 func (s *PostgresStore) GetCommonStudentsOfTeachers(teacherEmails []string) ([]string, error) {
+	conn, err := s.dbPool.Acquire(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+
 	if len(teacherEmails) == 0 {
 		return nil, fmt.Errorf("no teacher emails provided")
 	}
@@ -381,7 +505,7 @@ func (s *PostgresStore) GetCommonStudentsOfTeachers(teacherEmails []string) ([]s
 	GROUP BY Student.email
 	HAVING COUNT(DISTINCT ts.teacher_email) = %d;`, emailsToQueryString, len(teacherEmails))
 
-	rows, err := s.db.Query(query)
+	rows, err := conn.Query(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
