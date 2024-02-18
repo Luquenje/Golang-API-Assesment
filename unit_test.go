@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/joho/godotenv"
@@ -161,6 +162,18 @@ func TestCommonStudents1(t *testing.T) {
 		},
 	}
 
+	// Convert the "students" slice in both maps to slices of strings
+	students1 := toStringSlice(responseBody["students"])
+	students2 := toStringSlice(expected["students"])
+
+	// Sort the slices of students
+	sort.Strings(students1)
+	sort.Strings(students2)
+
+	// Update the "students" slice in the maps with the sorted slices
+	responseBody["students"] = students1
+	expected["students"] = students2
+
 	// Compare response body with expected
 	if !reflect.DeepEqual(responseBody, expected) {
 		t.Errorf("handler returned unexpected response body: got %v, want %v",
@@ -226,6 +239,9 @@ func TestCommonStudents2(t *testing.T) {
 	expected := CommonStudentsResponse{StudentEmails: []string{
 		"studenthon@gmail.com",
 		"studentjon@gmail.com"}}
+
+	sort.Strings(responseBody.StudentEmails)
+	sort.Strings(expected.StudentEmails)
 
 	// Compare response body with expected
 	if !reflect.DeepEqual(responseBody, expected) {
@@ -344,6 +360,9 @@ func TestNotification1(t *testing.T) {
 		"studenthon@gmail.com",
 		"student_only_under_teacher_joe@gmail.com"}}
 
+	sort.Strings(responseBody.StudentEmails)
+	sort.Strings(expected.StudentEmails)
+
 	// Compare response body with expected
 	if !reflect.DeepEqual(responseBody, expected) {
 		t.Errorf("handler returned unexpected response body: got %v, want %v",
@@ -412,6 +431,9 @@ func TestNotification2(t *testing.T) {
 		"student_only_under_teacher_ken@gmail.com",
 		"studenthon@gmail.com"}}
 
+	sort.Strings(responseBody.StudentEmails)
+	sort.Strings(expected.StudentEmails)
+
 	// Compare response body with expected
 	if !reflect.DeepEqual(responseBody, expected) {
 		t.Errorf("handler returned unexpected response body: got %v, want %v",
@@ -420,4 +442,19 @@ func TestNotification2(t *testing.T) {
 	}
 
 	fmt.Println("--- Passed Notification2 Test")
+}
+
+// toStringSlice converts an interface{} slice to a []string slice
+func toStringSlice(slice interface{}) []string {
+	if slice == nil {
+		return nil
+	}
+	// Convert interface{} slice to []interface{} slice
+	interfaceSlice := slice.([]interface{})
+	// Convert []interface{} slice to []string slice
+	stringSlice := make([]string, len(interfaceSlice))
+	for i, v := range interfaceSlice {
+		stringSlice[i] = v.(string)
+	}
+	return stringSlice
 }
