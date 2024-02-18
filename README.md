@@ -2,6 +2,9 @@
 
 Develop a backend application that will be part of a system which teachers can use to perform administrative functions for their students. Teachers and students are identified by their email addresses.
 
+I have hosted the Golang API at https://golang-api-assesment-production.up.railway.app/ using Railway's free trail plan.
+It uses a PostgreSQL which is hosted on ElephantSQL.
+
 # Use Instructions
 
 ### This program assumes that Go, PostgreSQL (and WSL depending if the system needs it to run PostgreSQL) have already been installed on the device. I am using Go ver 1.22.0 for Windows and PostgreSQL ver 16.2 for Windows.
